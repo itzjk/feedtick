@@ -9,7 +9,7 @@ Get only the RSS headlines you have not confirmed yet, grouped by sector with so
 
 ## Quick start
 
-Requires Python 3.11+ and [pipx](https://pipx.pypa.io/).
+Requires Python 3.9+ and [pipx](https://pipx.pypa.io/).
 
 ```sh
 pipx install git+https://github.com/itzjk/feedtick.git

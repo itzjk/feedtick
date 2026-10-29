@@ -1,7 +1,11 @@
-import tomllib
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 from .feeds import FeedError, fetch, iso, normalize_url, parse
 from .store import Store
