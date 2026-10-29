@@ -341,6 +341,41 @@ def test_cli_and_configuration(tmp_path, wire):
     assert result.returncode == 1 and "unknown batch" in result.stderr
 
 
+@pytest.mark.parametrize("mode", ["text", "markdown"])
+@pytest.mark.parametrize("state_source", ["flag", "environment", "default"])
+def test_printed_confirmation_uses_checked_state(tmp_path, wire, mode, state_source):
+    feeds = tmp_path / "feeds.toml"
+    feeds.write_text(f'[[feeds]]\nurl="{wire[0]}/rss"\nsector="Grains"\n')
+    env = {**os.environ, "XDG_STATE_HOME": str(tmp_path / "default state"),
+           "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", "")}
+    env.pop("FEEDTICK_STATE", None)
+    state = "personal state's ``` $(echo unsafe);.sqlite3"
+    args = ["--state", state] if state_source == "flag" else []
+    if state_source == "environment":
+        env["FEEDTICK_STATE"] = state
+    command = [sys.executable, "-m", "feedtick.cli"]
+    checking = command + ["check", str(feeds), *args]
+    if mode == "markdown":
+        checking.append("--markdown")
+    first = subprocess.run(checking, cwd=tmp_path, env=env, text=True, capture_output=True, timeout=10)
+    assert first.returncode == 0, first.stderr
+    repeated = subprocess.run(checking, cwd=tmp_path, env=env, text=True, capture_output=True, timeout=10)
+    assert repeated.returncode == 0 and repeated.stdout == first.stdout
+    confirmation = next(line.removeprefix("Confirm: ") for line in first.stdout.splitlines()
+                        if line.startswith("feedtick ack ") or line.startswith("Confirm: feedtick ack "))
+    ack_env = {**env, "XDG_STATE_HOME": str(tmp_path / "other default")}
+    ack_env.pop("FEEDTICK_STATE", None)
+    confirmed = subprocess.run(["sh", "-c", confirmation], cwd=tmp_path, env=ack_env,
+                               text=True, capture_output=True, timeout=10)
+    assert confirmed.returncode == 0, confirmed.stdout + confirmed.stderr
+    assert confirmed.stdout.startswith("Confirmed batch ")
+    empty = subprocess.run(command + ["check", str(feeds), *args, "--json"], cwd=tmp_path,
+                           env=env, text=True, capture_output=True, timeout=10)
+    assert empty.returncode == 0, empty.stderr
+    assert json.loads(empty.stdout)["items"] == []
+    assert "Confirm:" not in render(json.loads(empty.stdout))
+
+
 @pytest.mark.parametrize("args", [["ack"], ["check", "feeds.toml", "--retries", "9"], ["check", "feeds.toml", "--timeout", "0"]])
 def test_usage_errors_do_not_look_like_partial_coverage(args):
     result = subprocess.run([sys.executable, "-m", "feedtick.cli", *args], text=True, capture_output=True, timeout=10)

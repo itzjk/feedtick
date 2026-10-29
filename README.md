@@ -66,6 +66,8 @@ name = "Grain Central Trade"
 
 State defaults to `$XDG_STATE_HOME/feedtick/state.sqlite3`, or `~/.local/state/feedtick/state.sqlite3`. `FEEDTICK_STATE` sets another default. One state file has one pending batch. Independent review queues need separate state files.
 
+Text and Markdown checks print a confirmation command with the selected state path, quoted for your shell. Copy it to confirm that batch, including when the path contains spaces.
+
 ## FAQ
 
 **Does it support Atom?** Yes, alongside well-formed RSS. It fetches feed endpoints and follows their HTTP redirects, never article links.

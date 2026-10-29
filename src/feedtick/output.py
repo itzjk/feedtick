@@ -1,6 +1,7 @@
 import html
 import json
 import re
+import shlex
 from itertools import groupby
 
 from .feeds import visible
@@ -13,7 +14,7 @@ def markdown(value):
     return re.sub(r"([\\`*_{}\[\]()#+.!|>~-])", r"\\\1", html.escape(visible(value), quote=True))
 
 
-def render(payload, mode="text"):
+def render(payload, mode="text", *, state=None):
     if mode == "json":
         return json.dumps(payload, ensure_ascii=True, indent=2)
     esc = markdown if mode == "markdown" else visible
@@ -51,5 +52,13 @@ def render(payload, mode="text"):
                 if len(item["sources"]) > 1:
                     lines.append("  Also listed by: " + "; ".join(f"{esc(s['name'])} ({esc(s['source'])}, {esc(s['sector'])})" for s in item["sources"] if s["source"] != item["source"]))
     if payload["batch_id"]:
-        lines.extend(["", f"Confirm: feedtick ack {payload['batch_id']}"])
+        args = ["feedtick", "ack", payload["batch_id"]]
+        if state is not None:
+            args.extend(["--state", str(state)])
+        command = shlex.join(args)
+        if mode == "markdown":
+            fence = "`" * max(3, 1 + max((len(run) for run in re.findall(r"`+", command)), default=0))
+            lines.extend(["", "Confirm:", "", fence + "sh", command, fence])
+        else:
+            lines.extend(["", f"Confirm: {command}"])
     return "\n".join(lines)

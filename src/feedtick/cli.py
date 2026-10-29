@@ -58,7 +58,7 @@ def main(argv=None):
             print(f"{'Confirmed' if changed else 'Already confirmed'} batch {visible(args.batch_id)}.")
             return 0
         payload = check(args.state, config(args.config), timeout=args.timeout, retries=args.retries, recent_hours=args.recent_hours)
-        print(render(payload, "json" if args.json else "markdown" if args.markdown else "text"))
+        print(render(payload, "json" if args.json else "markdown" if args.markdown else "text", state=args.state))
         return 2 if payload["coverage_status"] == "partial" else 0
     except (OSError, ValueError, sqlite3.Error) as exc:
         print(f"feedtick: {visible(exc)}", file=sys.stderr)
