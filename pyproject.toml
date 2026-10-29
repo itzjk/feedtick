@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feedtick"
+version = "0.1.0"
+description = "Only new RSS headlines since your last confirmed check, grouped by sector."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = ["rss", "atom", "news", "digest", "incremental", "feed-reader", "cli", "productivity"]
+dependencies = ["feedparser>=6.0.11,<7", "defusedxml>=0.7.1,<1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.urls]
+Repository = "https://github.com/itzjk/feedtick"
+Issues = "https://github.com/itzjk/feedtick/issues"
+
+[project.scripts]
+feedtick = "feedtick.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
