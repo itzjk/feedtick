@@ -242,6 +242,54 @@ def test_concurrent_checks_and_stale_ack(tmp_path, wire):
         ack(db, "not-a-batch", now=NOW)
 
 
+def test_concurrent_cli_processes_keep_batch_ownership(tmp_path, wire):
+    db = tmp_path / "state.db"
+    feeds = tmp_path / "feeds.toml"
+    feeds.write_text(f'[[feeds]]\nurl="{wire[0]}/rss"\nsector="Grains"\n')
+    command = [sys.executable, "-m", "feedtick.cli"]
+
+    def together(*commands):
+        processes = [subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for args in commands]
+        results = []
+        try:
+            for process in processes:
+                stdout, stderr = process.communicate(timeout=20)
+                assert process.returncode == 0, stderr
+                results.append(stdout)
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+        return results
+
+    checking = command + ["check", str(feeds), "--state", str(db), "--json"]
+    first, repeated = map(json.loads, together(checking, checking))
+    assert first == repeated
+    assert wire[3]["/rss"] == 1
+    confirming = command + ["ack", first["batch_id"], "--state", str(db)]
+    answers = together(confirming, confirming)
+    assert sum(answer.startswith("Confirmed batch") for answer in answers) == 1
+    assert sum(answer.startswith("Already confirmed batch") for answer in answers) == 1
+    wire[1]["/rss"]["body"] = rss([item(), item("b", "https://example.test/b")])
+    _, output = together(confirming, checking)
+    second = json.loads(output)
+    assert [entry["guid"] for entry in second["items"]] == ["b"]
+    assert poll(db, wire) == second
+    with sqlite3.connect(db) as connection:
+        assert connection.execute("SELECT confirmed FROM entries WHERE id=?", (second["items"][0]["id"],)).fetchone() == (0,)
+
+
+def test_pending_batch_survives_config_and_clock_changes(tmp_path, wire):
+    db = tmp_path / "state.db"
+    first = poll(db, wire)
+    wire[1]["/down"] = {"status": 503}
+    repeated = check(db, sources(wire, "/down"), now=NOW + timedelta(days=2), retries=0)
+    assert repeated == first
+    assert wire[3]["/down"] == 0
+    assert wire[3]["/rss"] == 1
+
+
 @pytest.mark.parametrize("phase", ["before", "after"])
 def test_process_interruption_recovery(tmp_path, wire, phase):
     db = tmp_path / "s.db"
@@ -265,7 +313,10 @@ os._exit(92)
         count = conn.execute("SELECT count(*) FROM batches").fetchone()[0]
         assert count == (0 if phase == "before" else 1)
         assert conn.execute("SELECT count(*) FROM entries WHERE confirmed=1").fetchone()[0] == 0
+        saved = json.loads(conn.execute("SELECT payload FROM batches").fetchone()[0]) if count else None
     recovered = poll(db, wire)
+    if phase == "after":
+        assert recovered == saved
     assert len(recovered["items"]) == 1
     assert poll(db, wire) == recovered
     ack(db, recovered["batch_id"], now=NOW)

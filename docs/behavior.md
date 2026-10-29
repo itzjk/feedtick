@@ -36,4 +36,4 @@ Run `feedtick ack <batch-id> --state /path/to/feedtick.sqlite3` after review. No
 
 ## Recording the demo
 
-With the project installed, VHS, ttyd, ffmpeg, and a Chromium browser available, run `vhs docs/demo.tape` from the repository root. The tape invokes `feedtick demo --pause 2`. All headlines and the HTTP server are generated locally; the temporary directory is removed afterward. `feedtick demo` runs the same scenario without pauses.
+With the project installed, VHS, ttyd, ffmpeg, and a Chromium browser available, run `vhs docs/demo.tape` from the repository root. The tape invokes `feedtick demo --pause 2`, waits for the first batch before showing the terminal, and waits for the partial-coverage result before ending. A slow start fails the tape's bounded wait instead of silently producing a truncated demo. All headlines and the HTTP server are generated locally; the temporary directory is removed afterward. `feedtick demo` runs the same scenario without pauses.
